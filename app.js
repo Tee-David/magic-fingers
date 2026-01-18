@@ -23,14 +23,14 @@ if (isLocalFile) {
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-    particleCount: 20000,
-    particleSize: 0.4,
+    particleCount: 10000, // Extreme speed boost
+    particleSize: 1.5,
     baseColor: new THREE.Color(0x00d4ff),
-    morphSpeed: 0.7,
+    morphSpeed: 0.5,     // Snappy morphs
     rotationSpeed: 0.005,
-    gestureSmoothing: 0.02,
-    dispersionMultiplier: 7.0,
-    turboMode: true     // Enable 320x240 tracking + 30fps cap
+    gestureSmoothing: 0.15, // Smooth but responsive
+    dispersionMultiplier: 8.0,
+    turboMode: true
 };
 
 // ============================================
@@ -531,43 +531,24 @@ class GestureDetector {
     }
 
     calculateOpenness(landmarks) {
-        // Calculate average finger extension
-        const fingerTips = [8, 12, 16, 20]; // Index, middle, ring, pinky tips
-        const fingerBases = [5, 9, 13, 17]; // MCP joints
-        const palm = landmarks[0]; // Wrist
+        // More robust finger-up detection
+        const tips = [8, 12, 16, 20];
+        const pips = [6, 10, 14, 18]; // Middle finger joints
+        let fingersUp = 0;
 
-        let totalExtension = 0;
-
-        for (let i = 0; i < fingerTips.length; i++) {
-            const tip = landmarks[fingerTips[i]];
-            const base = landmarks[fingerBases[i]];
-
-            const tipDist = Math.sqrt(
-                Math.pow(tip.x - palm.x, 2) +
-                Math.pow(tip.y - palm.y, 2) +
-                Math.pow(tip.z - palm.z, 2)
-            );
-
-            const baseDist = Math.sqrt(
-                Math.pow(base.x - palm.x, 2) +
-                Math.pow(base.y - palm.y, 2) +
-                Math.pow(base.z - palm.z, 2)
-            );
-
-            totalExtension += tipDist / (baseDist + 0.001);
+        for (let i = 0; i < tips.length; i++) {
+            // If tip is higher (lower Y) than joint, finger is up
+            if (landmarks[tips[i]].y < landmarks[pips[i]].y) {
+                fingersUp++;
+            }
         }
 
-        // Thumb extension
-        const thumb = landmarks[4];
+        // Thumb: check horizontal distance if vertical is limited
+        const thumbTip = landmarks[4];
         const thumbBase = landmarks[2];
-        const thumbExt = Math.sqrt(
-            Math.pow(thumb.x - thumbBase.x, 2) +
-            Math.pow(thumb.y - thumbBase.y, 2)
-        );
-        totalExtension += thumbExt * 5;
+        if (Math.abs(thumbTip.x - thumbBase.x) > 0.1) fingersUp++;
 
-        // Normalize to 0-1
-        return Math.min(1, Math.max(0, (totalExtension - 2) / 4));
+        return fingersUp / 5;
     }
 
     calculateRotation(landmarks) {
@@ -719,8 +700,8 @@ class ParticleSystem {
                     vAlpha = 0.4 + sin(time * 2.0 + randomValue.x * 6.28) * 0.4;
                     
                     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-                    // Optimized size calculation
-                    gl_PointSize = size * pixelRatio * (250.0 / length(mvPosition.xyz));
+                    // FIXED MINUTE SIZE: No attenuation, just 1-2px crisp stars
+                    gl_PointSize = clamp(size * pixelRatio * 0.8, 1.0, 2.5);
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
@@ -731,10 +712,10 @@ class ParticleSystem {
                 void main() {
                     float dist = length(gl_PointCoord - vec2(0.5));
                     // Sharper transition for "minute" particles
-                    float strength = 1.0 - smoothstep(0.1, 0.5, dist);
+                    float strength = 1.0 - smoothstep(0.3, 0.5, dist);
                     if (strength < 0.1) discard;
                     
-                    vec3 finalColor = vColor * (1.5 + strength);
+                    vec3 finalColor = vColor * (1.8 + strength);
                     gl_FragColor = vec4(finalColor, vAlpha * strength);
                 }
             `,
@@ -978,15 +959,10 @@ class App {
                 [5, 9], [9, 13], [13, 17]
             ];
 
-            // Initialize camera with Turbo resolution (320x240)
-            let frameCount = 0;
+            // Initialize camera with Ultra resolution (320x240) and no frame skips (MediaPipe does it better)
             const camera = new Camera(video, {
                 onFrame: async () => {
-                    frameCount++;
-                    // Turbo Mode: Process every 2nd frame (30fps tracking) to save 50% CPU
-                    if (frameCount % 2 === 0) {
-                        await hands.send({ image: video });
-                    }
+                    await hands.send({ image: video });
                 },
                 width: 320,
                 height: 240
