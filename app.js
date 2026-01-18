@@ -34,6 +34,47 @@ const CONFIG = {
 };
 
 // ============================================
+// HELPERS
+// ============================================
+const getTextPositions = (text, count) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1000;
+    canvas.height = 300;
+
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 200px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+    const points = [];
+
+    for (let y = 0; y < canvas.height; y += 4) {
+        for (let x = 0; x < canvas.width; x += 4) {
+            const alpha = pixels[(y * canvas.width + x) * 4 + 3];
+            if (alpha > 128) {
+                points.push({
+                    x: (x / canvas.width - 0.5) * 20,
+                    y: (0.5 - y / canvas.height) * 6
+                });
+            }
+        }
+    }
+
+    const result = [];
+    for (let i = 0; i < count; i++) {
+        const p = points[i % points.length];
+        result.push(new THREE.Vector3(p.x, p.y, (Math.random() - 0.5) * 0.5));
+    }
+    return result;
+};
+
+const TEXT_MAGIC_POSITIONS = getTextPositions('MAGIC', 20000);
+
+// ============================================
 // PATTERN DEFINITIONS (25+ patterns)
 // ============================================
 const PATTERNS = {
@@ -455,6 +496,10 @@ const PATTERNS = {
             // Right eye
             return new THREE.Vector3(1.5 + Math.random() * 0.5, 1.5 + Math.random() * 0.5, 0.5);
         }
+    },
+
+    textMagic: (i, total) => {
+        return TEXT_MAGIC_POSITIONS[i % TEXT_MAGIC_POSITIONS.length];
     }
 };
 
