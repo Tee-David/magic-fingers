@@ -592,8 +592,10 @@ class GestureDetector {
         const wrist = landmarks[0];
         const middleMCP = landmarks[9];
 
-        // Angle from wrist to middle finger base
-        return Math.atan2(middleMCP.x - wrist.x, middleMCP.y - wrist.y);
+        // Angle from wrist to middle finger base (normalized so 0 is upright)
+        // Note: Y increases downwards in MediaPipe
+        const angle = Math.atan2(middleMCP.x - wrist.x, wrist.y - middleMCP.y);
+        return angle;
     }
 
     calculatePinch(landmarks) {
@@ -856,13 +858,22 @@ class ParticleSystem {
 
         // Rotate based on hand rotation
         if (gesture.present) {
-            this.particles.rotation.y += gesture.rotation * 0.05;
-        } else {
-            this.particles.rotation.y += CONFIG.rotationSpeed;
-        }
+            // Direct Tilt: Map hand tilt directly to Z-axis
+            this.particles.rotation.z = -gesture.rotation;
 
-        this.particles.rotation.x = Math.sin(time * 0.2) * 0.1;
-        this.particles.rotation.z = Math.cos(time * 0.15) * 0.05;
+            // Influenced Spin: Hand tilt influences the spin speed on Y-axis
+            // If hand is upright (0), spin is normal. If tilted, spin speeds up or slows down.
+            const spinInfluence = 1.0 + Math.abs(gesture.rotation) * 2.0;
+            this.particles.rotation.y += CONFIG.rotationSpeed * spinInfluence;
+
+            // Tilt mapping to X-axis for 3D depth feel
+            this.particles.rotation.x = (gesture.position.y - 0.5) * 0.5;
+        } else {
+            // Idle spin
+            this.particles.rotation.y += CONFIG.rotationSpeed;
+            this.particles.rotation.z *= 0.95; // Return to 0
+            this.particles.rotation.x = Math.sin(time * 0.2) * 0.1;
+        }
     }
 }
 
