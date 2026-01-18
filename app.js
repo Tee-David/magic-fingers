@@ -541,24 +541,18 @@ class GestureDetector {
 
             const wrist = landmarks[0];
             this.targetPosition = { x: wrist.x, y: wrist.y };
-            this.targetPinch = this.calculatePinch(landmarks);
-            this.detectSwipe(wrist.x);
 
-            if (this.twoHandsPresent) {
-                const hand1 = results.multiHandLandmarks[0][0];
-                const hand2 = results.multiHandLandmarks[1][0];
-                this.targetHandsDistance = Math.sqrt(
-                    Math.pow(hand1.x - hand2.x, 2) +
-                    Math.pow(hand1.y - hand2.y, 2)
-                );
-            }
+            // ONE-HAND PINCH & ZOOM
+            this.targetPinch = this.calculatePinch(landmarks);
+
+            this.detectSwipe(wrist.x);
         } else {
             this.handPresent = false;
             this.targetOpenness = 0.5;
             this.swipeDirection = null;
         }
 
-        // ADAPTIVE SMOOTHING: Faster when moving, smoother when still
+        // ADAPTIVE SMOOTHING
         const movementSpeed = Math.abs(this.targetOpenness - this.handOpenness) +
             Math.abs(this.targetPosition.x - this.handPosition.x);
         const dynamicSmoothing = movementSpeed > 0.05 ? 0.3 : 0.1;
@@ -568,7 +562,6 @@ class GestureDetector {
         this.handPosition.x += (this.targetPosition.x - this.handPosition.x) * dynamicSmoothing;
         this.handPosition.y += (this.targetPosition.y - this.handPosition.y) * dynamicSmoothing;
         this.pinchStrength += (this.targetPinch - this.pinchStrength) * dynamicSmoothing;
-        this.handsDistance += (this.targetHandsDistance - this.handsDistance) * dynamicSmoothing;
     }
 
     calculateOpenness(landmarks) {
@@ -600,16 +593,15 @@ class GestureDetector {
 
     calculatePinch(landmarks) {
         const thumb = landmarks[4];
-        const index = landmarks[8];
+        const indexTip = landmarks[8];
+        const indexBase = landmarks[5];
 
-        const distance = Math.sqrt(
-            Math.pow(thumb.x - index.x, 2) +
-            Math.pow(thumb.y - index.y, 2) +
-            Math.pow(thumb.z - index.z, 2)
-        );
+        // Normalize pinch distance by index finger length (makes it distance-invariant)
+        const fingerLength = Math.hypot(indexTip.x - indexBase.x, indexTip.y - indexBase.y);
+        const pinchDist = Math.hypot(thumb.x - indexTip.x, thumb.y - indexTip.y);
 
-        // Smaller distance = stronger pinch
-        return Math.max(0, 1 - distance * 5);
+        // Map to 0-1 (0 = tight pinch, 1 = wide open)
+        return Math.min(2.0, pinchDist / (fingerLength + 0.01));
     }
 
     detectSwipe(currentX) {
@@ -851,27 +843,23 @@ class ParticleSystem {
 
         // Gesture effects
         uniforms.dispersion.value = (gesture.openness - 0.5) * 2 * CONFIG.dispersionMultiplier;
-        uniforms.pinch.value = gesture.pinch;
 
-        // Two-hand zoom
-        uniforms.zoom.value = gesture.twoHands ? gesture.handsDistance * 4 : 1;
+        // Use Pinch for Zoom (1.0 is neutral)
+        uniforms.zoom.value = 0.5 + gesture.pinch * 1.5;
 
-        // Rotate based on hand rotation
-        if (gesture.present) {
-            // Direct Tilt: Map hand tilt directly to Z-axis
+        // Rotate based on Closed Hand (Fist) Turn
+        if (gesture.present && gesture.openness < 0.3) {
+            // Only rotate when hand is closed (Fist)
             this.particles.rotation.z = -gesture.rotation;
 
-            // Influenced Spin: Hand tilt influences the spin speed on Y-axis
-            // If hand is upright (0), spin is normal. If tilted, spin speeds up or slows down.
-            const spinInfluence = 1.0 + Math.abs(gesture.rotation) * 2.0;
+            const spinInfluence = 1.0 + Math.abs(gesture.rotation) * 3.0;
             this.particles.rotation.y += CONFIG.rotationSpeed * spinInfluence;
 
-            // Tilt mapping to X-axis for 3D depth feel
-            this.particles.rotation.x = (gesture.position.y - 0.5) * 0.5;
+            this.particles.rotation.x = (gesture.position.y - 0.5) * 0.4;
         } else {
-            // Idle spin
+            // Idle state or Open Hand behavior
             this.particles.rotation.y += CONFIG.rotationSpeed;
-            this.particles.rotation.z *= 0.95; // Return to 0
+            this.particles.rotation.z *= 0.92; // Smoothly return to center
             this.particles.rotation.x = Math.sin(time * 0.2) * 0.1;
         }
     }
