@@ -464,6 +464,21 @@ body {
     font-size: 16px;
 }
 
+.universe-icon::before {
+    content: '✨';
+    font-size: 16px;
+}
+
+.saturn-icon::before {
+    content: '🪐';
+    font-size: 16px;
+}
+
+.emoji-icon::before {
+    content: '😊';
+    font-size: 16px;
+}
+
 /* Color Picker */
 .color-picker-container {
     display: flex;

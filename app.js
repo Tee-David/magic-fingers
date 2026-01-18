@@ -23,13 +23,14 @@ if (isLocalFile) {
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-    particleCount: 25000, // Reduced slightly for better stability
-    particleSize: 0.5,   // Even smaller for "minute" look
+    particleCount: 20000,
+    particleSize: 0.4,
     baseColor: new THREE.Color(0x00d4ff),
-    morphSpeed: 0.8,     // Faster morphing
-    rotationSpeed: 0.004,
-    gestureSmoothing: 0.03, // Ultra-responsive
-    dispersionMultiplier: 6.0
+    morphSpeed: 0.7,
+    rotationSpeed: 0.005,
+    gestureSmoothing: 0.02,
+    dispersionMultiplier: 7.0,
+    turboMode: true     // Enable 320x240 tracking + 30fps cap
 };
 
 // ============================================
@@ -399,6 +400,61 @@ const PATTERNS = {
             orbitRadius * Math.sin(mainOrbit + sat) * Math.sin(tilt),
             orbitRadius * Math.sin(mainOrbit + sat) * Math.cos(tilt)
         );
+    },
+
+    universe: (i, total) => {
+        const r = 2 + Math.random() * 10;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        // Expanding stars
+        const speed = 0.5;
+        const offset = (Math.random() - 0.5) * 2;
+        return new THREE.Vector3(
+            r * Math.sin(phi) * Math.cos(theta + offset),
+            r * Math.sin(phi) * Math.sin(theta + offset),
+            r * Math.cos(phi)
+        );
+    },
+
+    planetSaturn: (i, total) => {
+        if (i < total * 0.4) {
+            // Central sphere
+            const phi = Math.acos(-1 + (2 * i) / (total * 0.4));
+            const theta = Math.sqrt(total * 0.4 * Math.PI) * phi;
+            const r = 3;
+            return new THREE.Vector3(
+                r * Math.cos(theta) * Math.sin(phi),
+                r * Math.sin(theta) * Math.sin(phi),
+                r * Math.cos(phi)
+            );
+        } else {
+            // Rings
+            const ringIdx = i - (total * 0.4);
+            const ringTotal = total * 0.6;
+            const angle = (ringIdx / ringTotal) * Math.PI * 2;
+            const r = 4.5 + Math.random() * 1.5;
+            return new THREE.Vector3(
+                r * Math.cos(angle),
+                (Math.random() - 0.5) * 0.2,
+                r * Math.sin(angle)
+            );
+        }
+    },
+
+    emojiStorm: (i, total) => {
+        // Form a smiley face outline using clusters
+        const angle = (i / total) * Math.PI * 2;
+        const r = 5;
+        if (i < total * 0.7) {
+            // Face circle
+            return new THREE.Vector3(r * Math.cos(angle), r * Math.sin(angle), 0);
+        } else if (i < total * 0.85) {
+            // Left eye
+            return new THREE.Vector3(-1.5 + Math.random() * 0.5, 1.5 + Math.random() * 0.5, 0.5);
+        } else {
+            // Right eye
+            return new THREE.Vector3(1.5 + Math.random() * 0.5, 1.5 + Math.random() * 0.5, 0.5);
+        }
     }
 };
 
@@ -922,13 +978,18 @@ class App {
                 [5, 9], [9, 13], [13, 17]
             ];
 
-            // Initialize camera
+            // Initialize camera with Turbo resolution (320x240)
+            let frameCount = 0;
             const camera = new Camera(video, {
                 onFrame: async () => {
-                    await hands.send({ image: video });
+                    frameCount++;
+                    // Turbo Mode: Process every 2nd frame (30fps tracking) to save 50% CPU
+                    if (frameCount % 2 === 0) {
+                        await hands.send({ image: video });
+                    }
                 },
-                width: 640,
-                height: 480
+                width: 320,
+                height: 240
             });
 
             await camera.start();
