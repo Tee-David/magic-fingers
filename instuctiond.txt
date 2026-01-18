@@ -1,0 +1,6 @@
+Requirements for Developing a Gesture-Based Real-Time Interactive 3D Particle System with Three.js
+Core Functionality: Build a real-time interactive 3D particle system using Three.js, with the camera capturing hand open–close gestures in real time to precisely control particle scaling, contraction, expansion, and dispersion effects.
+Model Generation: Include a visually appealing and intuitive UI panel offering a variety of stylish pattern options. Support generating high-fidelity 3D particle models based on selected patterns, ensuring fine and realistic particle visual effects.
+Visual Customization: Integrate a color picker that allows users to easily adjust the overall tone of the particles to meet personalized visual preferences.
+Interactive Response: The particle system must respond to hand gesture changes in real time, ensuring smooth and immediate interaction.
+Interface Design: The overall interface should follow a clean and minimalistic style, with a built-in fullscreen mode button to enhance ease of use.

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gesture Particle System</title>
+    <meta name="description"
+        content="Interactive 3D particle system controlled by hand gestures using Three.js and MediaPipe">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Three.js Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Webcam Video (hidden, used for hand tracking) -->
+    <video id="webcam" autoplay playsinline></video>
+
+    <!-- Webcam Preview (small corner view) -->
+    <div id="webcam-preview">
+        <canvas id="webcam-canvas"></canvas>
+        <div id="gesture-indicator">
+            <span id="gesture-text">Initializing...</span>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div id="control-panel">
+        <div class="panel-header">
+            <h2>Particle Controls</h2>
+            <button id="toggle-panel" aria-label="Toggle panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Pattern Selection -->
+            <div class="control-section">
+                <h3>Pattern <span class="pattern-count">(25)</span></h3>
+                <div class="pattern-grid" id="pattern-grid">
+                    <!-- Basic Shapes -->
+                    <button class="pattern-btn active" data-pattern="sphere" title="Sphere">
+                        <div class="pattern-icon sphere-icon"></div>
+                        <span>Sphere</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="cube" title="Cube">
+                        <div class="pattern-icon cube-icon"></div>
+                        <span>Cube</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="torus" title="Torus">
+                        <div class="pattern-icon torus-icon"></div>
+                        <span>Torus</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="cylinder" title="Cylinder">
+                        <div class="pattern-icon cylinder-icon"></div>
+                        <span>Cylinder</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="cone" title="Cone">
+                        <div class="pattern-icon cone-icon"></div>
+                        <span>Cone</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="pyramid" title="Pyramid">
+                        <div class="pattern-icon pyramid-icon"></div>
+                        <span>Pyramid</span>
+                    </button>
+
+                    <!-- Complex Shapes -->
+                    <button class="pattern-btn" data-pattern="spiral" title="Spiral">
+                        <div class="pattern-icon spiral-icon"></div>
+                        <span>Spiral</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="dna" title="DNA">
+                        <div class="pattern-icon dna-icon"></div>
+                        <span>DNA</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="heart" title="Heart">
+                        <div class="pattern-icon heart-icon"></div>
+                        <span>Heart</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="star" title="Star">
+                        <div class="pattern-icon star-icon"></div>
+                        <span>Star</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="diamond" title="Diamond">
+                        <div class="pattern-icon diamond-icon"></div>
+                        <span>Diamond</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="butterfly" title="Butterfly">
+                        <div class="pattern-icon butterfly-icon"></div>
+                        <span>Butterfly</span>
+                    </button>
+
+                    <!-- Nature -->
+                    <button class="pattern-btn" data-pattern="galaxy" title="Galaxy">
+                        <div class="pattern-icon galaxy-icon"></div>
+                        <span>Galaxy</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="tornado" title="Tornado">
+                        <div class="pattern-icon tornado-icon"></div>
+                        <span>Tornado</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="vortex" title="Vortex">
+                        <div class="pattern-icon vortex-icon"></div>
+                        <span>Vortex</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="wave" title="Wave">
+                        <div class="pattern-icon wave-icon"></div>
+                        <span>Wave</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="ripple" title="Ripple">
+                        <div class="pattern-icon ripple-icon"></div>
+                        <span>Ripple</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="cloud" title="Cloud">
+                        <div class="pattern-icon cloud-icon"></div>
+                        <span>Cloud</span>
+                    </button>
+
+                    <!-- Abstract -->
+                    <button class="pattern-btn" data-pattern="trefoilKnot" title="Trefoil Knot">
+                        <div class="pattern-icon knot-icon"></div>
+                        <span>Knot</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="torusKnot" title="Torus Knot">
+                        <div class="pattern-icon torusknot-icon"></div>
+                        <span>T-Knot</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="infinity" title="Infinity">
+                        <div class="pattern-icon infinity-icon"></div>
+                        <span>Infinity</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="shell" title="Shell">
+                        <div class="pattern-icon shell-icon"></div>
+                        <span>Shell</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="rose" title="Rose">
+                        <div class="pattern-icon rose-icon"></div>
+                        <span>Rose</span>
+                    </button>
+
+                    <!-- Science -->
+                    <button class="pattern-btn" data-pattern="atom" title="Atom">
+                        <div class="pattern-icon atom-icon"></div>
+                        <span>Atom</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="orbit" title="Orbit">
+                        <div class="pattern-icon orbit-icon"></div>
+                        <span>Orbit</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="brain" title="Brain">
+                        <div class="pattern-icon brain-icon"></div>
+                        <span>Brain</span>
+                    </button>
+
+                    <!-- Effects -->
+                    <button class="pattern-btn" data-pattern="explosion" title="Explosion">
+                        <div class="pattern-icon explosion-icon"></div>
+                        <span>Explode</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="lightning" title="Lightning">
+                        <div class="pattern-icon lightning-icon"></div>
+                        <span>Lightning</span>
+                    </button>
+                    <button class="pattern-btn" data-pattern="snowflake" title="Snowflake">
+                        <div class="pattern-icon snowflake-icon"></div>
+                        <span>Snowflake</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Color Picker -->
+            <div class="control-section">
+                <h3>Particle Color</h3>
+                <div class="color-picker-container">
+                    <input type="color" id="color-picker" value="#00d4ff">
+                    <div class="color-presets">
+                        <button class="color-preset active" data-color="#00d4ff" style="background: #00d4ff;"
+                            title="Cyan"></button>
+                        <button class="color-preset" data-color="#ff006e" style="background: #ff006e;"
+                            title="Pink"></button>
+                        <button class="color-preset" data-color="#8338ec" style="background: #8338ec;"
+                            title="Purple"></button>
+                        <button class="color-preset" data-color="#06ffa5" style="background: #06ffa5;"
+                            title="Green"></button>
+                        <button class="color-preset" data-color="#ffbe0b" style="background: #ffbe0b;"
+                            title="Yellow"></button>
+                        <button class="color-preset" data-color="#fb5607" style="background: #fb5607;"
+                            title="Orange"></button>
+                        <button class="color-preset" data-color="#ffffff" style="background: #ffffff;"
+                            title="White"></button>
+                        <button class="color-preset" data-color="#3a86ff" style="background: #3a86ff;"
+                            title="Blue"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Particle Count -->
+            <div class="control-section">
+                <h3>Particle Count</h3>
+                <div class="slider-container">
+                    <input type="range" id="particle-count" min="5000" max="50000" value="15000" step="1000">
+                    <span id="particle-count-value">15,000</span>
+                </div>
+            </div>
+
+            <!-- Particle Size -->
+            <div class="control-section">
+                <h3>Particle Size</h3>
+                <div class="slider-container">
+                    <input type="range" id="particle-size" min="1" max="10" value="3" step="0.5">
+                    <span id="particle-size-value">3</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Panel Toggle (visible on small screens) -->
+    <button id="mobile-panel-toggle" aria-label="Open controls">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+                d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83">
+            </path>
+        </svg>
+    </button>
+
+    <!-- Fullscreen Button -->
+    <button id="fullscreen-btn" aria-label="Toggle fullscreen">
+        <svg id="fullscreen-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
+            </path>
+        </svg>
+        <svg id="exit-fullscreen-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" style="display: none;">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3">
+            </path>
+        </svg>
+    </button>
+
+    <!-- Gesture Help Button (mobile) -->
+    <button id="help-btn" aria-label="Show gesture help">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+    </button>
+
+    <!-- Instructions Overlay -->
+    <div id="instructions">
+        <div class="instructions-content">
+            <h3>👋 Gesture Controls</h3>
+            <div class="gesture-list">
+                <div class="gesture-item">
+                    <span class="gesture-icon">✋</span>
+                    <span><strong>Open hand</strong> → Expand particles</span>
+                </div>
+                <div class="gesture-item">
+                    <span class="gesture-icon">✊</span>
+                    <span><strong>Close fist</strong> → Contract particles</span>
+                </div>
+                <div class="gesture-item">
+                    <span class="gesture-icon">🤏</span>
+                    <span><strong>Pinch</strong> → Shrink towards center</span>
+                </div>
+                <div class="gesture-item">
+                    <span class="gesture-icon">👈</span>
+                    <span><strong>Swipe</strong> → Change pattern</span>
+                </div>
+                <div class="gesture-item">
+                    <span class="gesture-icon">🙌</span>
+                    <span><strong>Two hands</strong> → Zoom control</span>
+                </div>
+            </div>
+            <button id="close-instructions">Got it!</button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="loader"></div>
+        <p>Initializing camera & hand tracking...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
