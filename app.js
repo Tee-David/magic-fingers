@@ -1,10 +1,5 @@
-/**
- * Gesture-Based 3D Particle System
- * Real-time hand tracking with 25+ particle patterns
- */
-
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // ============================================
 // PROTOCOL CHECK (Security Requirement)
@@ -28,13 +23,13 @@ if (isLocalFile) {
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-    particleCount: 30000,
-    particleSize: 1.2,
+    particleCount: 40000,
+    particleSize: 0.8,
     baseColor: new THREE.Color(0x00d4ff),
-    morphSpeed: 1.5, // Seconds for a full morph
-    rotationSpeed: 0.002,
-    gestureSmoothing: 0.1,
-    dispersionMultiplier: 4.0
+    morphSpeed: 1.0, // Seconds for a full morph
+    rotationSpeed: 0.003,
+    gestureSmoothing: 0.05, // Much snappier
+    dispersionMultiplier: 5.0
 };
 
 // ============================================
