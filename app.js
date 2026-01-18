@@ -23,13 +23,13 @@ if (isLocalFile) {
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-    particleCount: 40000,
-    particleSize: 0.8,
+    particleCount: 25000, // Reduced slightly for better stability
+    particleSize: 0.5,   // Even smaller for "minute" look
     baseColor: new THREE.Color(0x00d4ff),
-    morphSpeed: 1.0, // Seconds for a full morph
-    rotationSpeed: 0.003,
-    gestureSmoothing: 0.05, // Much snappier
-    dispersionMultiplier: 5.0
+    morphSpeed: 0.8,     // Faster morphing
+    rotationSpeed: 0.004,
+    gestureSmoothing: 0.03, // Ultra-responsive
+    dispersionMultiplier: 6.0
 };
 
 // ============================================
@@ -647,30 +647,24 @@ class ParticleSystem {
                 void main() {
                     vColor = color;
                     
-                    // Simple easing for morph
                     float t = smoothstep(0.0, 1.0, morphFactor);
                     vec3 pos = mix(sourcePosition, targetPosition, t);
                     
-                    // Dispersion (Open Hand)
-                    pos *= (1.0 + dispersion * 0.5);
+                    pos *= (1.0 + dispersion * 0.4);
                     
-                    // Jitter / Noise
-                    pos.x += sin(time * 2.0 + randomValue.x * 10.0) * 0.05;
-                    pos.y += cos(time * 1.5 + randomValue.y * 10.0) * 0.05;
-                    pos.z += sin(time * 1.8 + randomValue.z * 10.0) * 0.05;
+                    // Minute Jitter
+                    pos.x += sin(time * 3.0 + randomValue.x * 10.0) * 0.02;
+                    pos.y += cos(time * 2.5 + randomValue.y * 10.0) * 0.02;
+                    pos.z += sin(time * 2.8 + randomValue.z * 10.0) * 0.02;
                     
-                    // Pinch
-                    if (pinch > 0.1) {
-                        pos *= (1.0 - pinch * 0.7);
-                    }
-                    
-                    // Zoom
+                    if (pinch > 0.1) pos *= (1.0 - pinch * 0.8);
                     pos *= zoom;
                     
-                    vAlpha = 0.6 + sin(time + randomValue.x * 6.28) * 0.3;
+                    vAlpha = 0.4 + sin(time * 2.0 + randomValue.x * 6.28) * 0.4;
                     
                     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-                    gl_PointSize = size * pixelRatio * (400.0 / -mvPosition.z);
+                    // Optimized size calculation
+                    gl_PointSize = size * pixelRatio * (250.0 / length(mvPosition.xyz));
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
@@ -680,12 +674,12 @@ class ParticleSystem {
                 
                 void main() {
                     float dist = length(gl_PointCoord - vec2(0.5));
-                    if (dist > 0.5) discard;
+                    // Sharper transition for "minute" particles
+                    float strength = 1.0 - smoothstep(0.1, 0.5, dist);
+                    if (strength < 0.1) discard;
                     
-                    float glow = 1.0 - smoothstep(0.0, 0.5, dist);
-                    vec3 finalColor = vColor * (1.2 + glow * 0.8);
-                    
-                    gl_FragColor = vec4(finalColor, vAlpha * glow);
+                    vec3 finalColor = vColor * (1.5 + strength);
+                    gl_FragColor = vec4(finalColor, vAlpha * strength);
                 }
             `,
             transparent: true,
@@ -887,9 +881,9 @@ class App {
             });
 
             hands.setOptions({
-                maxNumHands: 2,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.7,
+                maxNumHands: 1,
+                modelComplexity: 0,
+                minDetectionConfidence: 0.5,
                 minTrackingConfidence: 0.5
             });
 
