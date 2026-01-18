@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set "PORT=3000"
+set "PORT=5173"
 
 echo ===================================================
 echo   Magic Fingers - Local Server Starter
