@@ -535,23 +535,15 @@ class GestureDetector {
 
             const landmarks = results.multiHandLandmarks[0];
 
-            // Calculate hand openness (fingers extended vs closed)
+            // Calculate hand openness
             this.targetOpenness = this.calculateOpenness(landmarks);
-
-            // Calculate hand rotation
             this.targetRotation = this.calculateRotation(landmarks);
 
-            // Calculate hand position (normalized 0-1)
             const wrist = landmarks[0];
             this.targetPosition = { x: wrist.x, y: wrist.y };
-
-            // Calculate pinch strength (thumb to index distance)
             this.targetPinch = this.calculatePinch(landmarks);
-
-            // Detect swipe
             this.detectSwipe(wrist.x);
 
-            // Two-hand distance for zoom
             if (this.twoHandsPresent) {
                 const hand1 = results.multiHandLandmarks[0][0];
                 const hand2 = results.multiHandLandmarks[1][0];
@@ -566,34 +558,34 @@ class GestureDetector {
             this.swipeDirection = null;
         }
 
-        // Smooth values
-        this.handOpenness += (this.targetOpenness - this.handOpenness) * CONFIG.gestureSmoothing;
-        this.handRotation += (this.targetRotation - this.handRotation) * CONFIG.gestureSmoothing;
-        this.handPosition.x += (this.targetPosition.x - this.handPosition.x) * CONFIG.gestureSmoothing;
-        this.handPosition.y += (this.targetPosition.y - this.handPosition.y) * CONFIG.gestureSmoothing;
-        this.pinchStrength += (this.targetPinch - this.pinchStrength) * CONFIG.gestureSmoothing;
-        this.handsDistance += (this.targetHandsDistance - this.handsDistance) * CONFIG.gestureSmoothing;
+        // ADAPTIVE SMOOTHING: Faster when moving, smoother when still
+        const movementSpeed = Math.abs(this.targetOpenness - this.handOpenness) +
+            Math.abs(this.targetPosition.x - this.handPosition.x);
+        const dynamicSmoothing = movementSpeed > 0.05 ? 0.3 : 0.1;
+
+        this.handOpenness += (this.targetOpenness - this.handOpenness) * dynamicSmoothing;
+        this.handRotation += (this.targetRotation - this.handRotation) * dynamicSmoothing;
+        this.handPosition.x += (this.targetPosition.x - this.handPosition.x) * dynamicSmoothing;
+        this.handPosition.y += (this.targetPosition.y - this.handPosition.y) * dynamicSmoothing;
+        this.pinchStrength += (this.targetPinch - this.pinchStrength) * dynamicSmoothing;
+        this.handsDistance += (this.targetHandsDistance - this.handsDistance) * dynamicSmoothing;
     }
 
     calculateOpenness(landmarks) {
-        // More robust finger-up detection
+        // High-fidelity smooth mapping
         const tips = [8, 12, 16, 20];
-        const pips = [6, 10, 14, 18]; // Middle finger joints
-        let fingersUp = 0;
+        const bases = [5, 9, 13, 17];
+        const wrist = landmarks[0];
+        let score = 0;
 
         for (let i = 0; i < tips.length; i++) {
-            // If tip is higher (lower Y) than joint, finger is up
-            if (landmarks[tips[i]].y < landmarks[pips[i]].y) {
-                fingersUp++;
-            }
+            const tipDist = Math.hypot(landmarks[tips[i]].x - wrist.x, landmarks[tips[i]].y - wrist.y);
+            const baseDist = Math.hypot(landmarks[bases[i]].x - wrist.x, landmarks[bases[i]].y - wrist.y);
+            // Ratio of tip distance to base distance defines extension
+            score += Math.min(1.0, (tipDist / (baseDist + 0.001) - 1.2) / 1.0);
         }
 
-        // Thumb: check horizontal distance if vertical is limited
-        const thumbTip = landmarks[4];
-        const thumbBase = landmarks[2];
-        if (Math.abs(thumbTip.x - thumbBase.x) > 0.1) fingersUp++;
-
-        return fingersUp / 5;
+        return Math.max(0, Math.min(1, score / 4));
     }
 
     calculateRotation(landmarks) {
@@ -964,9 +956,9 @@ class App {
 
             hands.setOptions({
                 maxNumHands: 1,
-                modelComplexity: 0,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
+                modelComplexity: 1, // Increased to 1 for much better gesture stability
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
             });
 
             hands.onResults((results) => {
