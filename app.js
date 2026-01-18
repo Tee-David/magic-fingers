@@ -824,6 +824,31 @@ class ParticleSystem {
         this.particles.geometry.attributes.size.needsUpdate = true;
     }
 
+    setTextPattern(text) {
+        if (!text) return;
+
+        const positions = getTextPositions(text, this.count);
+
+        // Move current targets to source
+        const sourcePositions = this.particles.geometry.attributes.sourcePosition.array;
+        const targetPositions = this.particles.geometry.attributes.targetPosition.array;
+
+        for (let i = 0; i < targetPositions.length; i++) {
+            sourcePositions[i] = targetPositions[i];
+        }
+
+        for (let i = 0; i < this.count; i++) {
+            const pos = positions[i % positions.length];
+            targetPositions[i * 3] = pos.x;
+            targetPositions[i * 3 + 1] = pos.y;
+            targetPositions[i * 3 + 2] = pos.z;
+        }
+
+        this.particles.geometry.attributes.sourcePosition.needsUpdate = true;
+        this.particles.geometry.attributes.targetPosition.needsUpdate = true;
+        this.morphStartTime = performance.now() * 0.001;
+    }
+
     updateParticleCount(newCount) {
         // For simplicity, we'll just update the visible range
         // Full implementation would recreate the geometry
@@ -1094,6 +1119,29 @@ class App {
             });
         });
 
+        // Custom Text
+        const textInput = document.getElementById('custom-text-input');
+        const applyBtn = document.getElementById('apply-text-btn');
+
+        const applyCustomText = () => {
+            const text = textInput.value.trim();
+            if (text) {
+                this.particleSystem.setTextPattern(text);
+                // Highlight button
+                applyBtn.style.transform = 'scale(1.2)';
+                setTimeout(() => applyBtn.style.transform = 'scale(1)', 200);
+            }
+        };
+
+        applyBtn.addEventListener('click', applyCustomText);
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') applyCustomText();
+        });
+
+        // Set current year in footer
+        const yearSpan = document.getElementById('current-year');
+        if (yearSpan) yearSpan.textContent = new Date().getFullYear();
+
         // Particle count slider
         document.getElementById('particle-count').addEventListener('input', (e) => {
             const count = parseInt(e.target.value);
@@ -1167,23 +1215,45 @@ class App {
         });
 
         // Fullscreen
-        document.getElementById('fullscreen-btn').addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
+        const fsBtn = document.getElementById('fullscreen-btn');
+        fsBtn.addEventListener('click', () => {
+            const doc = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                // Request Fullscreen (with mobile fallbacks)
+                if (doc.requestFullscreen) {
+                    doc.requestFullscreen();
+                } else if (doc.webkitRequestFullscreen) {
+                    doc.webkitRequestFullscreen();
+                } else if (doc.msRequestFullscreen) {
+                    doc.msRequestFullscreen();
+                }
+
                 document.getElementById('fullscreen-icon').style.display = 'none';
                 document.getElementById('exit-fullscreen-icon').style.display = 'block';
             } else {
-                document.exitFullscreen();
+                // Exit Fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+
                 document.getElementById('fullscreen-icon').style.display = 'block';
                 document.getElementById('exit-fullscreen-icon').style.display = 'none';
             }
         });
 
-        document.addEventListener('fullscreenchange', () => {
-            const isFullscreen = !!document.fullscreenElement;
-            document.getElementById('fullscreen-icon').style.display = isFullscreen ? 'none' : 'block';
-            document.getElementById('exit-fullscreen-icon').style.display = isFullscreen ? 'block' : 'none';
-        });
+        // Update UI when fullscreen state changes (especially for mobile gesture exits)
+        const onFullscreenChange = () => {
+            const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            document.getElementById('fullscreen-icon').style.display = isFs ? 'none' : 'block';
+            document.getElementById('exit-fullscreen-icon').style.display = isFs ? 'block' : 'none';
+        };
+
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
         // Instructions close
         document.getElementById('close-instructions').addEventListener('click', () => {

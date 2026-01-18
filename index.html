@@ -94,7 +94,16 @@
                         <span>Butterfly</span>
                     </button>
 
-                    <!-- Nature -->
+                    <!-- Custom Text -->
+                    <div class="control-group">
+                        <label>Text Projection</label>
+                        <div class="text-input-container">
+                            <input type="text" id="custom-text-input" placeholder="Type something..." maxlength="15">
+                            <button id="apply-text-btn" class="apply-btn">🪄</button>
+                        </div>
+                    </div>
+
+                    <!-- Patterns -->
                     <button class="pattern-btn" data-pattern="galaxy" title="Galaxy">
                         <div class="pattern-icon galaxy-icon"></div>
                         <span>Galaxy</span>
@@ -308,6 +317,12 @@
         <div class="loader"></div>
         <p>Initializing camera & hand tracking...</p>
     </div>
+
+    <!-- Responsive Footer -->
+    <footer class="main-footer">
+        <p>©️ <span id="current-year"></span> All rights reserved | WDC Solutions powered by <span
+                class="brand-name">Tee-David™️</span></p>
+    </footer>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
