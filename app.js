@@ -524,8 +524,10 @@ class GestureDetector {
         this.lastWristX = 0.5;
         this.gestureHistory = [];
         this.twoHandsPresent = false;
-        this.handsDistance = 0;
         this.targetHandsDistance = 0;
+        this.lastX = 0.5;
+        this.velocityX = 0;
+        this.swipeCooldown = 0;
     }
 
     processResults(results) {
@@ -556,6 +558,14 @@ class GestureDetector {
         const movementSpeed = Math.abs(this.targetOpenness - this.handOpenness) +
             Math.abs(this.targetPosition.x - this.handPosition.x);
         const dynamicSmoothing = movementSpeed > 0.05 ? 0.3 : 0.1;
+
+        // Velocity tracking for swipe
+        const currentX = this.targetPosition.x;
+        this.velocityX = (currentX - this.lastX) * 10.0; // Scale for easier thresholding
+        this.lastX = currentX;
+
+        // Detect swipe based on velocity
+        this.detectSwipe();
 
         this.handOpenness += (this.targetOpenness - this.handOpenness) * dynamicSmoothing;
         this.handRotation += (this.targetRotation - this.handRotation) * dynamicSmoothing;
@@ -604,13 +614,20 @@ class GestureDetector {
         return Math.min(2.0, pinchDist / (fingerLength + 0.01));
     }
 
-    detectSwipe(currentX) {
-        const threshold = 0.15;
-        const diff = currentX - this.lastWristX;
+    detectSwipe() {
+        if (this.swipeCooldown > 0) {
+            this.swipeCooldown--;
+            this.swipeDirection = null;
+            return;
+        }
 
-        if (Math.abs(diff) > threshold) {
-            this.swipeDirection = diff > 0 ? 'right' : 'left';
-            this.lastWristX = currentX;
+        const velocityThreshold = 0.3; // High velocity for "flick"
+        if (this.velocityX > velocityThreshold) {
+            this.swipeDirection = 'left'; // Normalized swipe direction
+            this.swipeCooldown = 15; // Wait ~0.5s before next swipe
+        } else if (this.velocityX < -velocityThreshold) {
+            this.swipeDirection = 'right';
+            this.swipeCooldown = 15;
         } else {
             this.swipeDirection = null;
         }
@@ -1282,12 +1299,10 @@ class App {
         });
 
         // Swipe detection for pattern change
-        let lastSwipeTime = 0;
         setInterval(() => {
             const gesture = this.gestureDetector.getGestureState();
-            const now = Date.now();
 
-            if (gesture.swipe && now - lastSwipeTime > 500) {
+            if (gesture.swipe) {
                 const buttons = Array.from(document.querySelectorAll('.pattern-btn'));
                 const activeIndex = buttons.findIndex(b => b.classList.contains('active'));
                 let newIndex;
@@ -1298,11 +1313,9 @@ class App {
                     newIndex = (activeIndex - 1 + buttons.length) % buttons.length;
                 }
 
-                buttons.forEach((b, i) => b.classList.toggle('active', i === newIndex));
-                this.particleSystem.setPattern(buttons[newIndex].dataset.pattern);
-                lastSwipeTime = now;
+                buttons[newIndex].click(); // Reuse button click handler for consistency
             }
-        }, 100);
+        }, 16); // Run at ~60fps for instant response
     }
 
     animate() {
