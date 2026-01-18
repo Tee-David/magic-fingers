@@ -37,4 +37,4 @@ echo.
 pause
 
 :end
-localend
+endlocal

@@ -28,13 +28,13 @@ if (isLocalFile) {
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-    particleCount: 15000,
-    particleSize: 3,
+    particleCount: 30000,
+    particleSize: 1.2,
     baseColor: new THREE.Color(0x00d4ff),
-    morphSpeed: 0.08,
-    rotationSpeed: 0.001,
-    gestureSmoothing: 0.15,
-    dispersionMultiplier: 3.0
+    morphSpeed: 1.5, // Seconds for a full morph
+    rotationSpeed: 0.002,
+    gestureSmoothing: 0.1,
+    dispersionMultiplier: 4.0
 };
 
 // ============================================
@@ -587,9 +587,7 @@ class ParticleSystem {
         this.scene = scene;
         this.count = CONFIG.particleCount;
         this.currentPattern = 'sphere';
-        this.targetPositions = [];
-        this.basePositions = [];
-        this.velocities = [];
+        this.morphStartTime = 0;
 
         this.createParticles();
         this.setPattern('sphere');
@@ -598,52 +596,86 @@ class ParticleSystem {
     createParticles() {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(this.count * 3);
+        const sourcePositions = new Float32Array(this.count * 3);
+        const targetPositions = new Float32Array(this.count * 3);
+        const randomValues = new Float32Array(this.count * 3);
         const colors = new Float32Array(this.count * 3);
         const sizes = new Float32Array(this.count);
-        const alphas = new Float32Array(this.count);
 
         for (let i = 0; i < this.count; i++) {
-            positions[i * 3] = 0;
-            positions[i * 3 + 1] = 0;
-            positions[i * 3 + 2] = 0;
+            // Random initial jitter
+            randomValues[i * 3] = Math.random();
+            randomValues[i * 3 + 1] = Math.random();
+            randomValues[i * 3 + 2] = Math.random();
 
             colors[i * 3] = CONFIG.baseColor.r;
             colors[i * 3 + 1] = CONFIG.baseColor.g;
             colors[i * 3 + 2] = CONFIG.baseColor.b;
 
-            sizes[i] = CONFIG.particleSize * (0.5 + Math.random() * 0.5);
-            alphas[i] = 0.5 + Math.random() * 0.5;
-
-            this.velocities.push(new THREE.Vector3());
-            this.targetPositions.push(new THREE.Vector3());
-            this.basePositions.push(new THREE.Vector3());
+            sizes[i] = CONFIG.particleSize * (0.8 + Math.random() * 0.4);
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('sourcePosition', new THREE.BufferAttribute(sourcePositions, 3));
+        geometry.setAttribute('targetPosition', new THREE.BufferAttribute(targetPositions, 3));
+        geometry.setAttribute('randomValue', new THREE.BufferAttribute(randomValues, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-        geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
 
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
-                pixelRatio: { value: window.devicePixelRatio }
+                morphFactor: { value: 0 },
+                dispersion: { value: 0 },
+                pinch: { value: 0 },
+                zoom: { value: 1 },
+                pixelRatio: { value: window.devicePixelRatio },
+                baseColor: { value: CONFIG.baseColor }
             },
             vertexShader: `
                 attribute float size;
-                attribute float alpha;
                 attribute vec3 color;
+                attribute vec3 sourcePosition;
+                attribute vec3 targetPosition;
+                attribute vec3 randomValue;
+                
                 varying vec3 vColor;
                 varying float vAlpha;
+                
                 uniform float time;
+                uniform float morphFactor;
+                uniform float dispersion;
+                uniform float pinch;
+                uniform float zoom;
                 uniform float pixelRatio;
                 
                 void main() {
                     vColor = color;
-                    vAlpha = alpha;
                     
-                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    gl_PointSize = size * pixelRatio * (300.0 / -mvPosition.z);
+                    // Simple easing for morph
+                    float t = smoothstep(0.0, 1.0, morphFactor);
+                    vec3 pos = mix(sourcePosition, targetPosition, t);
+                    
+                    // Dispersion (Open Hand)
+                    pos *= (1.0 + dispersion * 0.5);
+                    
+                    // Jitter / Noise
+                    pos.x += sin(time * 2.0 + randomValue.x * 10.0) * 0.05;
+                    pos.y += cos(time * 1.5 + randomValue.y * 10.0) * 0.05;
+                    pos.z += sin(time * 1.8 + randomValue.z * 10.0) * 0.05;
+                    
+                    // Pinch
+                    if (pinch > 0.1) {
+                        pos *= (1.0 - pinch * 0.7);
+                    }
+                    
+                    // Zoom
+                    pos *= zoom;
+                    
+                    vAlpha = 0.6 + sin(time + randomValue.x * 6.28) * 0.3;
+                    
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    gl_PointSize = size * pixelRatio * (400.0 / -mvPosition.z);
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
@@ -656,7 +688,7 @@ class ParticleSystem {
                     if (dist > 0.5) discard;
                     
                     float glow = 1.0 - smoothstep(0.0, 0.5, dist);
-                    vec3 finalColor = vColor * (1.0 + glow * 0.5);
+                    vec3 finalColor = vColor * (1.2 + glow * 0.8);
                     
                     gl_FragColor = vec4(finalColor, vAlpha * glow);
                 }
@@ -676,11 +708,28 @@ class ParticleSystem {
         this.currentPattern = patternName;
         const patternFn = PATTERNS[patternName];
 
+        // Move current targets to source
+        const sourcePositions = this.particles.geometry.attributes.sourcePosition.array;
+        const targetPositions = this.particles.geometry.attributes.targetPosition.array;
+
+        // First, copy current interpolated positions to source to ensure smooth transition from anywhere
+        // Actually, for simplicity and stability, we'll just copy current targets
+        for (let i = 0; i < targetPositions.length; i++) {
+            sourcePositions[i] = targetPositions[i];
+        }
+
+        // Generate new targets
         for (let i = 0; i < this.count; i++) {
             const pos = patternFn(i, this.count);
-            this.targetPositions[i].copy(pos);
-            this.basePositions[i].copy(pos);
+            targetPositions[i * 3] = pos.x;
+            targetPositions[i * 3 + 1] = pos.y;
+            targetPositions[i * 3 + 2] = pos.z;
         }
+
+        this.particles.geometry.attributes.sourcePosition.needsUpdate = true;
+        this.particles.geometry.attributes.targetPosition.needsUpdate = true;
+
+        this.morphStartTime = performance.now() * 0.001;
     }
 
     setColor(color) {
@@ -725,62 +774,32 @@ class ParticleSystem {
     }
 
     update(gesture, deltaTime) {
-        const positions = this.particles.geometry.attributes.position.array;
         const time = performance.now() * 0.001;
 
+        // Update Uniforms
+        const uniforms = this.particles.material.uniforms;
+        uniforms.time.value = time;
+
+        // Morph Factor
+        const elapsed = time - this.morphStartTime;
+        uniforms.morphFactor.value = Math.min(1.0, elapsed / CONFIG.morphSpeed);
+
         // Gesture effects
-        const openness = gesture.openness;
-        const dispersion = (openness - 0.5) * 2 * CONFIG.dispersionMultiplier;
-        const rotation = gesture.rotation;
-        const pinch = gesture.pinch;
+        uniforms.dispersion.value = (gesture.openness - 0.5) * 2 * CONFIG.dispersionMultiplier;
+        uniforms.pinch.value = gesture.pinch;
 
         // Two-hand zoom
-        const zoomFactor = gesture.twoHands ? gesture.handsDistance * 2 : 1;
-
-        for (let i = 0; i < this.count; i++) {
-            const target = this.targetPositions[i];
-            const base = this.basePositions[i];
-
-            // Calculate target with dispersion
-            const dispersedTarget = new THREE.Vector3(
-                base.x * (1 + dispersion * 0.5) + (Math.random() - 0.5) * dispersion * 0.5,
-                base.y * (1 + dispersion * 0.5) + (Math.random() - 0.5) * dispersion * 0.5,
-                base.z * (1 + dispersion * 0.5) + (Math.random() - 0.5) * dispersion * 0.5
-            );
-
-            // Apply zoom
-            dispersedTarget.multiplyScalar(zoomFactor);
-
-            // Apply pinch (contract towards center)
-            if (pinch > 0.3) {
-                const pinchFactor = 1 - pinch * 0.8;
-                dispersedTarget.multiplyScalar(pinchFactor);
-            }
-
-            // Smooth morphing
-            target.lerp(dispersedTarget, CONFIG.morphSpeed);
-
-            // Add subtle organic movement
-            const noise = Math.sin(time * 2 + i * 0.01) * 0.05;
-
-            // Update position
-            positions[i * 3] = target.x + noise;
-            positions[i * 3 + 1] = target.y + Math.cos(time * 1.5 + i * 0.02) * 0.05;
-            positions[i * 3 + 2] = target.z + Math.sin(time * 1.8 + i * 0.015) * 0.05;
-        }
-
-        this.particles.geometry.attributes.position.needsUpdate = true;
+        uniforms.zoom.value = gesture.twoHands ? gesture.handsDistance * 4 : 1;
 
         // Rotate based on hand rotation
         if (gesture.present) {
-            this.particles.rotation.y += rotation * 0.02;
+            this.particles.rotation.y += gesture.rotation * 0.05;
         } else {
             this.particles.rotation.y += CONFIG.rotationSpeed;
         }
-        this.particles.rotation.x = Math.sin(time * 0.2) * 0.1;
 
-        // Update shader time
-        this.particles.material.uniforms.time.value = time;
+        this.particles.rotation.x = Math.sin(time * 0.2) * 0.1;
+        this.particles.rotation.z = Math.cos(time * 0.15) * 0.05;
     }
 }
 
