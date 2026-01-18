@@ -7,6 +7,24 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ============================================
+// PROTOCOL CHECK (Security Requirement)
+// ============================================
+const isLocalFile = window.location.protocol === 'file:';
+if (isLocalFile) {
+    const warning = document.createElement('div');
+    warning.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; padding: 20px;
+        background: #ff006e; color: white; text-align: center; z-index: 9999;
+        font-family: inherit; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    `;
+    warning.innerHTML = `
+        <strong>⚠️ Security Restriction:</strong> Browsers block camera & modules on <code>file://</code> URLs. 
+        Please run <strong>start.bat</strong> or use a local server (e.g., <code>npx serve</code>).
+    `;
+    document.body.prepend(warning);
+}
+
+// ============================================
 // CONFIGURATION
 // ============================================
 const CONFIG = {
@@ -912,9 +930,17 @@ class App {
 
         } catch (error) {
             console.error('Error initializing hand tracking:', error);
-            document.getElementById('loading-overlay').innerHTML = `
-                <p style="color: #ff006e;">Camera access denied or unavailable</p>
-                <p style="margin-top: 10px;">Please allow camera access and refresh</p>
+            const statusBox = document.getElementById('loading-overlay');
+            statusBox.style.background = 'rgba(20, 0, 0, 0.9)';
+            statusBox.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 40px; margin-bottom: 20px;">⚠️</div>
+                    <p style="color: #ff006e; font-weight: bold; font-size: 18px; margin-bottom: 10px;">Camera Access Failed</p>
+                    <p style="color: rgba(255,255,255,0.8); margin-bottom: 20px;">${error.message || 'Access denied or insecure origin'}</p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="window.location.reload()" style="padding: 10px 20px; border-radius: 8px; border: none; background: #00d4ff; color: white; cursor: pointer;">Retry</button>
+                    </div>
+                </div>
             `;
         }
     }
